@@ -1,0 +1,20 @@
+# 비밀 파일 (API 키)
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 환경
+.env
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
