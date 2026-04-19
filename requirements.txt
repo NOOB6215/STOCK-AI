@@ -8,4 +8,5 @@ requests
 torch
 transformers
 xgboost
+scikit-learn
 anthropic
