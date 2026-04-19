@@ -1,4 +1,3 @@
-
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -19,14 +18,11 @@ warnings.filterwarnings("ignore")
 st.set_page_config(page_title="주식 AI 리포트", page_icon="🤖",
                    layout="wide", initial_sidebar_state="expanded")
 
-# ============================================================
-# 🔐 API 키 (Streamlit secrets에서 로드)
-# ============================================================
 try:
     DART_API_KEY = st.secrets["DART_API_KEY"]
     ANTHROPIC_API_KEY = st.secrets["ANTHROPIC_API_KEY"]
 except Exception as e:
-    st.error("⚠️ API 키가 설정되지 않았습니다. Streamlit Cloud 설정에서 secrets를 추가하세요.")
+    st.error("⚠️ API 키가 설정되지 않았습니다.")
     st.stop()
 
 STOCK_OPTIONS = {
@@ -125,7 +121,7 @@ def load_fundamentals(ticker):
     except:
         return {}
 
-# === 사이드바 ===
+# 사이드바
 st.sidebar.title("⚙️ 설정")
 selected_name = st.sidebar.selectbox("📊 종목", list(STOCK_OPTIONS.keys()))
 selected_info = STOCK_OPTIONS[selected_name]
@@ -144,12 +140,12 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("""### 📌 사용법
 **단기 관점**: AI 예측 탭
 **장기 관점**: 장기 가치 탭
-**종합**: Claude 리포트
+**둘 다 보기**: 🔮 종합 예측 탭
 
 ⚠️ 참고용. 최종 판단은 본인.
 """)
 
-# === 메인 ===
+# 메인
 st.title(f"🤖 {selected_name} AI 리포트")
 st.caption(f"업데이트: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
 
@@ -164,17 +160,19 @@ rsi = latest["RSI"]
 rsi_status = "과매수 ⚠️" if rsi > 70 else ("과매도 💡" if rsi < 30 else "중립")
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("💰 현재가", f"{latest["Close"]:,.0f}원", f"{chg:+.2f}%")
-col2.metric("📊 MA20", f"{latest["MA20"]:,.0f}원",
-            f"{(latest["Close"]/latest["MA20"]-1)*100:+.1f}%")
-col3.metric("📈 MA60", f"{latest["MA60"]:,.0f}원",
-            f"{(latest["Close"]/latest["MA60"]-1)*100:+.1f}%")
+col1.metric("💰 현재가", f"{latest['Close']:,.0f}원", f"{chg:+.2f}%")
+col2.metric("📊 MA20", f"{latest['MA20']:,.0f}원",
+            f"{(latest['Close']/latest['MA20']-1)*100:+.1f}%")
+col3.metric("📈 MA60", f"{latest['MA60']:,.0f}원",
+            f"{(latest['Close']/latest['MA60']-1)*100:+.1f}%")
 col4.metric("⚡ RSI", f"{rsi:.1f}", rsi_status)
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "📈 차트", "📰 뉴스 AI", "📋 공시", "🤖 AI 예측", "💎 장기 가치", "🎓 Claude"
+# 7개 탭으로 확장 (종합 예측 추가)
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "📈 차트", "📰 뉴스 AI", "📋 공시", "🤖 AI 예측", "💎 장기 가치", "🔮 종합 예측", "🎓 Claude"
 ])
 
+# 탭 1: 차트
 with tab1:
     st.markdown("### 📈 주가 차트")
     fig = go.Figure()
@@ -197,6 +195,7 @@ with tab1:
     fig_rsi.update_layout(height=300, plot_bgcolor="white", yaxis=dict(range=[0, 100]))
     st.plotly_chart(fig_rsi, use_container_width=True)
 
+# 탭 2: 뉴스 AI
 with tab2:
     st.markdown("### 📰 뉴스 AI 감성 분석")
     with st.spinner("뉴스 수집 중..."):
@@ -228,13 +227,14 @@ with tab2:
 
     for _, row in news_df.iterrows():
         emoji = {"긍정": "🟢", "중립": "⚪", "부정": "🔴"}[row["label"]]
-        with st.expander(f"{emoji} [{row["label"]}] {row["title"][:70]}"):
-            st.markdown(f"**언론사:** {row["press"]} | **스코어:** {row["score"]:+.3f}")
-            st.markdown(f"[원문]({row["url"]})")
+        with st.expander(f"{emoji} [{row['label']}] {row['title'][:70]}"):
+            st.markdown(f"**언론사:** {row['press']} | **스코어:** {row['score']:+.3f}")
+            st.markdown(f"[원문]({row['url']})")
 
     st.session_state["news_df"] = news_df
     st.session_state["news_stats"] = {"pos": pos, "neg": neg, "neu": neu, "avg": avg_score}
 
+# 탭 3: 공시
 with tab3:
     st.markdown("### 📋 DART 공시 (최근 30일)")
     with st.spinner("공시 수집 중..."):
@@ -249,11 +249,11 @@ with tab3:
         display_df["접수일"] = pd.to_datetime(display_df["접수일"], format="%Y%m%d").dt.strftime("%m/%d")
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
+# 탭 4: AI 예측 (단기)
 with tab4:
-    st.markdown("### 🤖 XGBoost AI 단기 예측")
+    st.markdown("### 🤖 XGBoost AI 단기 예측 (1주)")
     st.warning("""**⚠️ 올바른 해석**
 - 상승 **확률**이지 상승 **폭**이 아닙니다
-- "21%" = "내일 오를 확률 21%, 내릴 확률 79%"
 - AI 정확도 약 55% → 참고 자료로만 사용""")
 
     with st.spinner("AI 학습 중..."):
@@ -338,7 +338,10 @@ with tab4:
 
     st.session_state["chart_prob"] = chart_prob
     st.session_state["regime"] = regime
+    st.session_state["short_signal"] = signal
+    st.session_state["short_color"] = sc
 
+# 탭 5: 장기 가치
 with tab5:
     st.markdown("### 💎 장기 투자 지표")
     with st.spinner("재무 데이터..."):
@@ -350,21 +353,24 @@ with tab5:
         st.markdown("#### 💰 밸류에이션")
         cv1, cv2, cv3, cv4 = st.columns(4)
         per = fund.get("PER")
-        if per:
-            cv1.metric("PER", f"{per:.1f}배",
-                      "저평가 ✅" if per < 10 else ("고평가 ⚠️" if per > 25 else "적정"))
         pbr = fund.get("PBR")
-        if pbr:
-            cv2.metric("PBR", f"{pbr:.2f}배",
-                      "저평가 ✅" if pbr < 1 else ("고평가 ⚠️" if pbr > 3 else "적정"))
         div_yield = fund.get("Dividend_Yield")
+        roe = fund.get("ROE")
+        
+        cv1.metric("PER", f"{per:.1f}배" if per else "N/A",
+                  "저평가 ✅" if per and per < 10 else ("고평가 ⚠️" if per and per > 25 else ("적정" if per else "")))
+        cv2.metric("PBR", f"{pbr:.2f}배" if pbr else "N/A",
+                  "저평가 ✅" if pbr and pbr < 1 else ("고평가 ⚠️" if pbr and pbr > 3 else ("적정" if pbr else "")))
         if div_yield:
             div_pct = div_yield * 100 if div_yield < 1 else div_yield
             cv3.metric("배당수익률", f"{div_pct:.2f}%")
-        roe = fund.get("ROE")
+        else:
+            cv3.metric("배당수익률", "N/A")
         if roe:
             cv4.metric("ROE", f"{roe*100:.1f}%",
                       "우수 ✅" if roe*100 > 15 else "")
+        else:
+            cv4.metric("ROE", "N/A")
 
         st.markdown("#### 📊 52주 범위")
         w_high = fund.get("52w_High")
@@ -377,12 +383,256 @@ with tab5:
             c2.metric("현재 위치", f"{position:.0f}%")
             c3.metric("최고", f"{w_high:,.0f}원")
 
-        st.info("""💡 **해석 가이드**
-- **PER 낮음 + ROE 높음** = 버핏 스타일 우량주
-- **PBR 1 미만** = 자산 가치보다 싼 주식
-- **배당 3%+** = 안정적 현금 흐름""")
+        # 장기 투자 점수 계산
+        score_long = 0
+        reasons_long = []
+        
+        if per and per < 15:
+            score_long += 1
+            reasons_long.append(f"✅ PER {per:.1f}배 (저평가)")
+        elif per and per > 25:
+            score_long -= 1
+            reasons_long.append(f"⚠️ PER {per:.1f}배 (고평가)")
 
+        if pbr and pbr < 1.5:
+            score_long += 1
+            reasons_long.append(f"✅ PBR {pbr:.2f}배")
+        elif pbr and pbr > 3:
+            score_long -= 1
+
+        if roe and roe * 100 > 15:
+            score_long += 1
+            reasons_long.append(f"✅ ROE {roe*100:.1f}% (수익성 우수)")
+        elif roe and roe * 100 > 8:
+            reasons_long.append(f"👍 ROE {roe*100:.1f}% (양호)")
+        elif roe and roe * 100 < 5:
+            score_long -= 1
+            reasons_long.append(f"⚠️ ROE {roe*100:.1f}% (부진)")
+
+        if div_yield:
+            dp = div_yield * 100 if div_yield < 1 else div_yield
+            if dp > 2:
+                score_long += 1
+                reasons_long.append(f"✅ 배당 {dp:.2f}%")
+
+        # 52주 위치도 반영
+        if w_high and w_low:
+            pos = (latest["Close"] - w_low) / (w_high - w_low) * 100
+            if pos < 30:
+                score_long += 1
+                reasons_long.append(f"✅ 52주 저점권 (하위 {pos:.0f}%)")
+            elif pos > 85:
+                score_long -= 1
+                reasons_long.append(f"⚠️ 52주 고점권 (상위 {100-pos:.0f}%)")
+
+        # 장기 투자 장기 확률 계산 (점수 → 확률 변환)
+        # 점수 범위: -4 ~ +5 정도
+        # 0점 = 50%, +1점당 +10%, -1점당 -10%
+        long_prob = max(10, min(90, 50 + score_long * 10))
+
+        if score_long >= 3: verdict_long, vc_long = "💎 장기 투자 매력적", "#06A77D"
+        elif score_long >= 1: verdict_long, vc_long = "✅ 장기 투자 고려 가능", "#558B2F"
+        elif score_long >= -1: verdict_long, vc_long = "⚪ 중립", "#666666"
+        else: verdict_long, vc_long = "⚠️ 장기 투자 주의", "#E63946"
+
+        st.markdown("#### 🏆 장기 투자 적합도")
+        st.markdown(f"""<div style="background-color: {vc_long}20; padding: 15px; border-radius: 10px; 
+                    border-left: 5px solid {vc_long};">
+                    <h3 style="color: {vc_long}; margin: 0;">{verdict_long} (점수: {score_long:+d})</h3>
+                    </div>""", unsafe_allow_html=True)
+
+        st.markdown("**평가 근거:**")
+        for r in reasons_long:
+            st.markdown(r)
+
+        # 세션에 저장 (종합 예측 탭에서 사용)
+        st.session_state["long_prob"] = long_prob
+        st.session_state["long_score"] = score_long
+        st.session_state["long_verdict"] = verdict_long
+        st.session_state["long_color"] = vc_long
+        st.session_state["long_reasons"] = reasons_long
+
+# 탭 6: 🔮 종합 예측 (신규!)
 with tab6:
+    st.markdown("### 🔮 종합 예측: 단기 vs 장기")
+    st.caption("단기(1주)와 장기(1년) 관점을 한눈에 비교")
+
+    # 세션 체크
+    if "chart_prob" not in st.session_state or "long_prob" not in st.session_state:
+        st.info("⚠️ 먼저 **🤖 AI 예측** 탭과 **💎 장기 가치** 탭을 방문해주세요. 데이터 로드가 필요합니다.")
+    else:
+        short_prob = st.session_state["chart_prob"] * 100
+        long_prob = st.session_state["long_prob"]
+        short_signal = st.session_state.get("short_signal", "중립")
+        long_verdict = st.session_state.get("long_verdict", "중립")
+        short_color = st.session_state.get("short_color", "#666666")
+        long_color = st.session_state.get("long_color", "#666666")
+
+        # 메인 비교 - 좌우 나란히
+        col_s, col_l = st.columns(2)
+        
+        with col_s:
+            st.markdown("#### 📊 단기 (1주일)")
+            st.markdown(f"""<div style="background-color: {short_color}15; padding: 20px; 
+                        border-radius: 10px; border: 2px solid {short_color}; text-align: center;">
+                        <h1 style="color: {short_color}; margin: 0; font-size: 48px;">{short_prob:.1f}%</h1>
+                        <p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">상승 확률</p>
+                        <p style="margin: 5px 0 0 0; font-weight: bold; color: {short_color};">{short_signal}</p>
+                        </div>""", unsafe_allow_html=True)
+            st.caption("🎯 XGBoost AI 기반 기술적 예측")
+
+        with col_l:
+            st.markdown("#### 📅 장기 (1년+)")
+            st.markdown(f"""<div style="background-color: {long_color}15; padding: 20px; 
+                        border-radius: 10px; border: 2px solid {long_color}; text-align: center;">
+                        <h1 style="color: {long_color}; margin: 0; font-size: 48px;">{long_prob:.0f}%</h1>
+                        <p style="margin: 10px 0 0 0; font-size: 13px; color: #666;">상승 확률</p>
+                        <p style="margin: 5px 0 0 0; font-weight: bold; color: {long_color};">{long_verdict}</p>
+                        </div>""", unsafe_allow_html=True)
+            st.caption("💎 PER/ROE/재무 기반 가치 평가")
+
+        st.markdown("---")
+
+        # 듀얼 게이지 차트
+        st.markdown("#### 📊 시각화")
+        col_g1, col_g2 = st.columns(2)
+        
+        with col_g1:
+            fig_short = go.Figure(go.Indicator(
+                mode="gauge+number", value=short_prob,
+                title={"text": "단기 (1주)"},
+                gauge={"axis": {"range": [0, 100]}, "bar": {"color": short_color},
+                    "steps": [
+                        {"range": [0, 30], "color": "#ffcccc"},
+                        {"range": [30, 45], "color": "#ffe4cc"},
+                        {"range": [45, 55], "color": "#fff4cc"},
+                        {"range": [55, 70], "color": "#d4f4cc"},
+                        {"range": [70, 100], "color": "#b4e8b4"}],
+                    "threshold": {"line": {"color": "black", "width": 3}, "value": 50}}))
+            fig_short.update_layout(height=300)
+            st.plotly_chart(fig_short, use_container_width=True)
+
+        with col_g2:
+            fig_long = go.Figure(go.Indicator(
+                mode="gauge+number", value=long_prob,
+                title={"text": "장기 (1년+)"},
+                gauge={"axis": {"range": [0, 100]}, "bar": {"color": long_color},
+                    "steps": [
+                        {"range": [0, 30], "color": "#ffcccc"},
+                        {"range": [30, 45], "color": "#ffe4cc"},
+                        {"range": [45, 55], "color": "#fff4cc"},
+                        {"range": [55, 70], "color": "#d4f4cc"},
+                        {"range": [70, 100], "color": "#b4e8b4"}],
+                    "threshold": {"line": {"color": "black", "width": 3}, "value": 50}}))
+            fig_long.update_layout(height=300)
+            st.plotly_chart(fig_long, use_container_width=True)
+
+        # 4분면 종합 전략 추천
+        st.markdown("---")
+        st.markdown("#### ⚡ 종합 투자 전략 추천")
+
+        if short_prob >= 55 and long_prob >= 60:
+            strategy = "🔥 강력 매수 기회"
+            strategy_color = "#06A77D"
+            strategy_desc = """
+            **단기 ✅ + 장기 ✅ = 올인 시그널**
+            - 단기에도 오를 가능성 높고, 장기 매력도 높음
+            - 적극적 매수 고려 가능
+            - 다만 분할 매수로 리스크 관리
+            """
+        elif short_prob < 45 and long_prob >= 60:
+            strategy = "💎 분할 매수 기회"
+            strategy_color = "#558B2F"
+            strategy_desc = """
+            **단기 🔴 + 장기 ✅ = 조정 후 매수**
+            - 단기 조정 가능성 있으나 장기 매력도 높음
+            - 급하지 않게 분할 매수 접근
+            - "단기 하락 = 할인 기회" 관점
+            - 가치투자 스타일 (버핏 방식)
+            """
+        elif short_prob >= 55 and long_prob < 40:
+            strategy = "⚡ 단기 트레이딩만"
+            strategy_color = "#F77F00"
+            strategy_desc = """
+            **단기 ✅ + 장기 🔴 = 빠른 익절**
+            - 단기 반등 가능성 있지만 장기 매력도 낮음
+            - 장기 보유 비추, 짧게 치고 빠지기
+            - 손절선 미리 설정 필수
+            - 초보자에겐 추천 안 함
+            """
+        elif short_prob < 45 and long_prob < 40:
+            strategy = "🚫 관망 / 회피"
+            strategy_color = "#E63946"
+            strategy_desc = """
+            **단기 🔴 + 장기 🔴 = 피하기**
+            - 양쪽 다 부정적 시그널
+            - 현재는 매수 타이밍 아님
+            - 보유 중이면 비중 축소 고려
+            - 다른 종목 탐색 추천
+            """
+        else:
+            strategy = "🤔 관망 권장"
+            strategy_color = "#666666"
+            strategy_desc = """
+            **단기 ⚪ + 장기 ⚪ = 신호 불분명**
+            - 뚜렷한 매수/매도 신호 없음
+            - 추가 정보 수집 필요
+            - 뉴스, 공시 확인 후 판단
+            - Claude 리포트 참고 추천
+            """
+
+        st.markdown(f"""<div style="background-color: {strategy_color}20; padding: 25px; 
+                    border-radius: 10px; border-left: 5px solid {strategy_color};">
+                    <h2 style="color: {strategy_color}; margin: 0;">{strategy}</h2>
+                    </div>""", unsafe_allow_html=True)
+        st.markdown(strategy_desc)
+
+        # 예측 매트릭스 시각화
+        st.markdown("---")
+        st.markdown("#### 🗺️ 현재 위치 (매트릭스)")
+        
+        fig_matrix = go.Figure()
+        # 4분면 배경
+        fig_matrix.add_shape(type="rect", x0=50, y0=50, x1=100, y1=100,
+                             fillcolor="#d4f4cc", opacity=0.3, line=dict(width=0))
+        fig_matrix.add_shape(type="rect", x0=0, y0=50, x1=50, y1=100,
+                             fillcolor="#fff4cc", opacity=0.3, line=dict(width=0))
+        fig_matrix.add_shape(type="rect", x0=50, y0=0, x1=100, y1=50,
+                             fillcolor="#ffe4cc", opacity=0.3, line=dict(width=0))
+        fig_matrix.add_shape(type="rect", x0=0, y0=0, x1=50, y1=50,
+                             fillcolor="#ffcccc", opacity=0.3, line=dict(width=0))
+        # 중앙선
+        fig_matrix.add_shape(type="line", x0=50, y0=0, x1=50, y1=100,
+                             line=dict(color="gray", width=1, dash="dash"))
+        fig_matrix.add_shape(type="line", x0=0, y0=50, x1=100, y1=50,
+                             line=dict(color="gray", width=1, dash="dash"))
+        # 현재 위치
+        fig_matrix.add_trace(go.Scatter(x=[short_prob], y=[long_prob],
+            mode="markers+text",
+            marker=dict(size=30, color=strategy_color, line=dict(color="black", width=2)),
+            text=[selected_name], textposition="top center",
+            textfont=dict(size=14, color="black"), showlegend=False))
+        # 4분면 라벨
+        fig_matrix.add_annotation(x=75, y=75, text="🔥 강력 매수", showarrow=False, font=dict(size=12))
+        fig_matrix.add_annotation(x=25, y=75, text="💎 분할 매수", showarrow=False, font=dict(size=12))
+        fig_matrix.add_annotation(x=75, y=25, text="⚡ 단기만", showarrow=False, font=dict(size=12))
+        fig_matrix.add_annotation(x=25, y=25, text="🚫 회피", showarrow=False, font=dict(size=12))
+        
+        fig_matrix.update_layout(
+            xaxis=dict(title="← 하락  |  단기 상승 확률 (%)  |  상승 →", range=[0, 100]),
+            yaxis=dict(title="← 부정적  |  장기 매력도 (%)  |  긍정적 →", range=[0, 100]),
+            height=500, plot_bgcolor="white",
+            title="📍 현재 포지션")
+        st.plotly_chart(fig_matrix, use_container_width=True)
+
+        st.info("""💡 **매트릭스 해석법**
+        - **오른쪽 위**: 단기도 좋고 장기도 좋음 → 매수 적극 고려
+        - **왼쪽 위**: 단기 약하지만 장기 매력적 → 조정 시 매수
+        - **오른쪽 아래**: 단기 좋지만 장기 약함 → 단타만
+        - **왼쪽 아래**: 양쪽 다 안 좋음 → 피하기""")
+
+# 탭 7: Claude
+with tab7:
     st.markdown("### 🎓 Claude 전문가 리포트")
     if not use_claude:
         st.info("사이드바에서 Claude AI 체크하세요.")
@@ -397,17 +647,20 @@ with tab6:
                 st2 = st.session_state["news_stats"]
                 cp = st.session_state["chart_prob"]
                 rg = st.session_state["regime"]
+                long_p = st.session_state.get("long_prob", 50)
+                long_v = st.session_state.get("long_verdict", "중립")
                 top_p = ns.nlargest(3, "score")[["title"]].to_dict("records")
                 top_n = ns.nsmallest(3, "score")[["title"]].to_dict("records")
 
                 prompt = f"""당신은 15년 경력 한국 주식 애널리스트입니다.
 {selected_name} 리포트:
 
-현재가: {int(latest["Close"]):,}원 ({chg:+.2f}%)
+현재가: {int(latest['Close']):,}원 ({chg:+.2f}%)
 RSI: {rsi:.1f}
 체제: {rg}
-AI 예측: 상승 {cp*100:.1f}%
-뉴스: 평균 {st2["avg"]:+.3f} | 긍정 {st2["pos"]}/중립 {st2["neu"]}/부정 {st2["neg"]}
+단기 예측(1주): 상승 {cp*100:.1f}%
+장기 예측(1년+): 상승 {long_p:.0f}% ({long_v})
+뉴스: 평균 {st2['avg']:+.3f} | 긍정 {st2['pos']}/중립 {st2['neu']}/부정 {st2['neg']}
 
 호재:
 {chr(10).join([f"- {n['title'][:60]}" for n in top_p])}
@@ -420,7 +673,7 @@ AI 예측: 상승 {cp*100:.1f}%
 ### 2. 주가 해석
 ### 3. 주의 신호
 ### 4. 긍정 시그널
-### 5. 1주 전망
+### 5. 단기 vs 장기 관점
 ### 6. 주목 포인트
 
 각 2-4줄 간결하게."""
@@ -439,4 +692,4 @@ AI 예측: 상승 {cp*100:.1f}%
                     st.error(f"오류: {e}")
 
 st.markdown("---")
-st.caption(f"⚠️ 투자 참고용 | v3.0 | {datetime.now().strftime('%Y-%m-%d')}")
+st.caption(f"⚠️ 투자 참고용 | v4.0 | {datetime.now().strftime('%Y-%m-%d')}")
